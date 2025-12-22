@@ -123,19 +123,7 @@ function GunCursor() {
                 }} 
              />
              
-             {isFiring && (
-                 <div style={{
-                     position: 'absolute',
-                     top: '0', 
-                     left: '50%', 
-                     width: '200px',
-                     height: '200px',
-                     background: 'radial-gradient(circle, rgba(255,255,200,1) 0%, rgba(255,100,0,0) 70%)',
-                     borderRadius: '50%',
-                     transform: 'translate(-50%, -50%)',
-                     mixBlendMode: 'normal'
-                 }} />
-             )}
+
         </div>
 
         {/* Crosshair */}
