@@ -61,7 +61,7 @@ function GunCursor() {
       // The sprite points roughly towards Top-Left (-135 deg).
       // We want Rotation 0 to correspond to Deg -135.
       // So Rotation = Deg - (-135) = Deg + 135.
-      setRotation(deg + 135); 
+      setRotation(deg + 109); 
     }
     
     const handleMouseDown = () => {
