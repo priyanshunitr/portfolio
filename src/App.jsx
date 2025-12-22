@@ -2,22 +2,15 @@ import React, { useState, useRef, useEffect } from 'react'
 
 // --- Constants ---
 import gunImg from './assets/gun_v2.png'
+import hole1 from './assets/bullet_hole_1.png'
+import hole2 from './assets/bullet_hole_2.png'
+import hole3 from './assets/bullet_hole_3.png'
 
 const BULLET_LIFETIME = 4000 
-// Configuration for the Gun Image
-const GUN_SCALE = 1.2
-const PIVOT_X_PERCENT = 0.75 // 75% of screen width
-const PIVOT_Y_OFFSET_PX = 0 // Offset from bottom
-const GUN_IMAGE_ROTATION_OFFSET = 45 // Adjust this if gun points weirdly. 
-// If gun points UP in image, and we want it to point at mouse (screen angle), 
-// Screen Angle for UP is -90. 
-// We want `Rotation + Img_Angle = -90` ? No.
-// We want the Drawn Angle to be Target Angle.
-// Drawn = Base_Img + Rotation.
-// Target = atan2(dy, dx).
-// So Rotation = Target - Base_Img.
-// If Base_Img is pointing Top-Left (-45 deg?), then Rotation = Target - (-45) = Target + 45.
+const HOLE_IMAGES = [hole1, hole2, hole3]
 
+// Stick Model Implementation already verified. 
+// Restoring GunCursor Component
 function GunCursor() {
   const [rotation, setRotation] = useState(0)
   const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -25,46 +18,61 @@ function GunCursor() {
   const gunRef = useRef(null)
 
   useEffect(() => {
+    // Constant: The angle the gun points to in the raw image (relative to right/0deg).
+    // The gun image points roughly Top-Left (-115 degrees).
+    const NOZZLE_ANGLE_IN_IMAGE = -109; 
+
+    // We calculate the pivot position once (or on resize) to avoid layout thrashing
+    const updatePivot = () => {
+        // Gun bounds
+        const containerW = 500;
+        const containerH = 500;
+        
+        // CSS Position (Hardcoded to match the style below for performance)
+        const rightOffset = 20;
+        const bottomOffset = -250; // Pushed down
+        
+        // Pivot in %
+        const pivotXPercent = 0.5;
+        const pivotYPercent = 0.8;
+
+        const viewportW = window.innerWidth;
+        const viewportH = window.innerHeight;
+
+        // Calculate Pixel Position of the Element's Top-Left
+        const elementRight = viewportW - rightOffset;
+        const elementLeft = elementRight - containerW;
+        
+        // Bottom is relative to viewport bottom
+        // CSS bottom: -250px means the bottom edge is 250px BELOW the viewport bottom.
+        const elementBottom = viewportH - bottomOffset; 
+        const elementTop = elementBottom - containerH;
+
+        // Calculate Pivot Point in Screen Space
+        const pX = elementLeft + (containerW * pivotXPercent);
+        const pY = elementTop + (containerH * pivotYPercent);
+
+        return { x: pX, y: pY };
+    }
+
     const handleMouseMove = (e) => {
       setPosition({ x: e.clientX, y: e.clientY })
       
-      // Exact Visual Pivot Calculation
-      // Gun Container: 500x500, Right: 20px, Bottom: -250px
-      // Transform Origin: 50% 80%
+      const pivot = updatePivot(); 
+      // Vector from Pivot to Mouse (The "Stick")
+      const dx = e.clientX - pivot.x;
+      const dy = e.clientY - pivot.y;
       
-      const containerWidth = 500;
-      const containerHeight = 500;
-      const rightOffset = 20;
-      const bottomOffset = -250; 
+      // Target Angle for the stick
+      const targetAngleRad = Math.atan2(dy, dx); 
+      const targetAngleDeg = targetAngleRad * (180 / Math.PI);
       
-      // Pivot X (Screen Space)
-      // Screen Width - Right Offset - Half Width
-      const pivotX = window.innerWidth - rightOffset - (containerWidth / 2);
-      
-      // Pivot Y (Screen Space)
-      // Screen Height - Bottom Position (relative to bottom) -> Bottom Edge Y
-      // Bottom Edge Y = window.innerHeight - bottomOffset (note: bottomOffset is negative, so minus minus is plus?)
-      // Wait: bottom: -250px means it is pushed DOWN. So Y increases.
-      // Element Bottom Edge = window.innerHeight - bottomOffset? 
-      // If bottom is 10px, edge is at Height - 10.
-      // If bottom is -250px, edge is at Height - (-250) = Height + 250. Correct.
-      // Pivot is 80% down implies 20% up from bottom.
-      const pivotY = (window.innerHeight - bottomOffset) - (containerHeight * 0.2);
-
-      const dx = e.clientX - pivotX;
-      const dy = e.clientY - pivotY;
-      
-      const angle = Math.atan2(dy, dx); 
-      const deg = angle * (180 / Math.PI);
-      
-      // Calibration:
-      // The sprite points roughly towards Top-Left (-135 deg).
-      // We want Rotation 0 to correspond to Deg -135.
-      // So Rotation = Deg - (-135) = Deg + 135.
-      setRotation(deg + 109); 
+      // Calculate required rotation
+      setRotation(targetAngleDeg - NOZZLE_ANGLE_IN_IMAGE); 
     }
     
-    const handleMouseDown = () => {
+    // Firing logic
+     const handleMouseDown = () => {
         setIsFiring(true)
         setTimeout(() => setIsFiring(false), 100)
     }
@@ -122,8 +130,6 @@ function GunCursor() {
                      // Remove transform inside, just plain image
                 }} 
              />
-             
-
         </div>
 
         {/* Crosshair */}
@@ -142,7 +148,7 @@ function GunCursor() {
   )
 }
 
-function BulletHole({ x, y, id, onExpired }) {
+function BulletHole({ x, y, id, img, onExpired }) {
     useEffect(() => {
         const timer = setTimeout(() => {
             onExpired(id)
@@ -151,18 +157,22 @@ function BulletHole({ x, y, id, onExpired }) {
     }, [id, onExpired])
 
     return (
-        <div style={{
-            position: 'absolute',
-            left: x,
-            top: y,
-            width: '10px',
-            height: '10px',
-            background: 'black',
-            borderRadius: '50%',
-            transform: 'translate(-50%, -50%)',
-            pointerEvents: 'none',
-            boxShadow: '0 0 2px rgba(0,0,0,0.5)'
-        }} />
+        <img 
+            src={img}
+            alt="bullet hole"
+            style={{
+                position: 'absolute',
+                left: x,
+                top: y,
+                width: '30px', 
+                height: '30px',
+                objectFit: 'contain',
+                transform: 'translate(-50%, -50%)', // Center on click
+                pointerEvents: 'none',
+                opacity: 0.8,
+                mixBlendMode: 'multiply' // Blend with background slightly
+            }} 
+        />
     )
 }
 
@@ -171,10 +181,12 @@ function App() {
 
   useEffect(() => {
       const handleClick = (e) => {
+            const randomImg = HOLE_IMAGES[Math.floor(Math.random() * HOLE_IMAGES.length)];
             const newHole = {
                 x: e.clientX,
                 y: e.clientY,
-                id: Math.random()
+                id: Math.random(),
+                img: randomImg
             }
             setHoles(h => [...h, newHole])
       }
@@ -186,6 +198,7 @@ function App() {
   const removeHole = (id) => {
       setHoles(h => h.filter(hole => hole.id !== id))
   }
+// ...
 
   return (
     <div style={{ 
