@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 // --- Constants ---
 import gunImg from './assets/gun_v2.png'
@@ -6,7 +6,8 @@ import hole1 from './assets/bullet_hole_1.png'
 import hole2 from './assets/bullet_hole_2.png'
 import hole3 from './assets/bullet_hole_3.png'
 
-const BULLET_LIFETIME = 4000 
+const BULLET_LIFETIME = 1000 
+const FADE_DURATION = 500
 const HOLE_IMAGES = [hole1, hole2, hole3]
 
 // Stick Model Implementation already verified. 
@@ -141,19 +142,31 @@ function GunCursor() {
             pointerEvents: 'none',
             zIndex: 10000
         }}>
-            <div style={{ width: '2px', height: '20px', background: 'red', position: 'absolute', left: '0', top: '-10px' }}></div>
-            <div style={{ width: '20px', height: '2px', background: 'red', position: 'absolute', left: '-10px', top: '0' }}></div>
+            <div style={{ width: '2px', height: '20px', background: 'red', position: 'absolute', left: '0', top: '-10px', boxShadow: '0 0 5px rgba(255,0,0,0.5)' }}></div>
+            <div style={{ width: '20px', height: '2px', background: 'red', position: 'absolute', left: '-10px', top: '0', boxShadow: '0 0 5px rgba(255,0,0,0.5)' }}></div>
         </div>
     </div>
   )
 }
 
 function BulletHole({ x, y, id, img, onExpired }) {
+    const [isFading, setIsFading] = useState(false)
+
     useEffect(() => {
-        const timer = setTimeout(() => {
-            onExpired(id)
+        // Start fading after BULLET_LIFETIME
+        const fadeTimer = setTimeout(() => {
+            setIsFading(true)
         }, BULLET_LIFETIME)
-        return () => clearTimeout(timer)
+
+        // Remove from state after total time (stay + fade)
+        const removeTimer = setTimeout(() => {
+            onExpired(id)
+        }, BULLET_LIFETIME + FADE_DURATION)
+
+        return () => {
+            clearTimeout(fadeTimer)
+            clearTimeout(removeTimer)
+        }
     }, [id, onExpired])
 
     return (
@@ -167,10 +180,10 @@ function BulletHole({ x, y, id, img, onExpired }) {
                 width: '30px', 
                 height: '30px',
                 objectFit: 'contain',
-                transform: 'translate(-50%, -50%)', // Center on click
+                transform: 'translate(-50%, -50%)',
                 pointerEvents: 'none',
-                opacity: 0.8,
-                mixBlendMode: 'multiply' // Blend with background slightly
+                opacity: isFading ? 0 : 0.8,
+                transition: `opacity ${FADE_DURATION}ms ease-out`
             }} 
         />
     )
@@ -195,16 +208,16 @@ function App() {
       return () => window.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const removeHole = (id) => {
+  const removeHole = useCallback((id) => {
       setHoles(h => h.filter(hole => hole.id !== id))
-  }
+  }, [])
 // ...
 
   return (
     <div style={{ 
         width: '100vw', 
         height: '100vh', 
-        background: 'white', 
+        background: 'linear-gradient(135deg, #1e1e1e 0%, #121212 100%)', 
         cursor: 'none', /* Hide default cursor */
         overflow: 'hidden'
     }}>
@@ -213,9 +226,9 @@ function App() {
           <BulletHole key={h.id} {...h} onExpired={removeHole} />
       ))}
       
-      <div style={{ padding: '50px', fontFamily: 'sans-serif', color: '#333', userSelect: 'none' }}>
-          <h1>Portfolio Target Practice</h1>
-          <p>The screen is your canvas. Click to shoot.</p>
+      <div style={{ padding: '50px', fontFamily: 'sans-serif', color: '#e0e0e0', userSelect: 'none' }}>
+          <h1 style={{ color: '#fff', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>Portfolio Target Practice</h1>
+          <p style={{ opacity: 0.7 }}>The screen is your canvas. Click to shoot.</p>
       </div>
     </div>
   )
