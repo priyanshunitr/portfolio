@@ -149,6 +149,185 @@ function GunCursor() {
   )
 }
 
+function Mascot({ mousePos }) {
+  const mascotRef = useRef(null)
+  const [expression, setExpression] = useState('idle') // idle, frightened, dead
+  const [deadTimer, setDeadTimer] = useState(null)
+
+  const checkProximity = useCallback(() => {
+    if (!mascotRef.current || expression === 'dead') return
+
+    const rect = mascotRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    
+    const dx = mousePos.x - centerX
+    const dy = mousePos.y - centerY
+    const distance = Math.sqrt(dx * dx + dy * dy)
+
+    if (distance < 150) {
+      setExpression('frightened')
+    } else {
+      setExpression('idle')
+    }
+  }, [mousePos, expression])
+
+  useEffect(() => {
+    checkProximity()
+  }, [mousePos, checkProximity])
+
+  const handleMascotClick = (e) => {
+    setExpression('dead')
+    
+    if (deadTimer) clearTimeout(deadTimer)
+    const timer = setTimeout(() => {
+      setExpression('idle')
+    }, 3000)
+    setDeadTimer(timer)
+  }
+
+  // Calculate eye rotation/offset
+  const getEyeStyle = (isRightEye) => {
+    if (expression === 'dead' || !mascotRef.current) return {}
+    
+    const rect = mascotRef.current.getBoundingClientRect()
+    // Roughly center of eyes
+    const eyeBaseX = rect.left + (isRightEye ? 80 : 40)
+    const eyeBaseY = rect.top + 50
+    
+    const dx = mousePos.x - eyeBaseX
+    const dy = mousePos.y - eyeBaseY
+    const angle = Math.atan2(dy, dx)
+    const distance = Math.min(Math.sqrt(dx * dx + dy * dy) / 10, 8) 
+
+    return {
+      transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`
+    }
+  }
+
+  return (
+    <div 
+      ref={mascotRef}
+      onMouseDown={handleMascotClick}
+      style={{
+        position: 'absolute',
+        bottom: '100px',
+        left: '200px',
+        width: '120px',
+        height: '150px',
+        cursor: 'none',
+        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        transform: expression === 'dead' ? 'rotate(90deg) translateY(30px)' : (expression === 'frightened' ? 'scale(1.1) rotate(2deg)' : 'scale(1)'),
+        opacity: expression === 'dead' ? 0.7 : 1,
+        zIndex: 50,
+      }}
+    >
+      {/* Body */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        width: '100%',
+        height: '100px',
+        backgroundColor: expression === 'dead' ? '#4a4a4a' : (expression === 'frightened' ? '#ff6b6b' : '#4ecdc4'),
+        borderRadius: '50% 50% 25% 25%',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.5), inset 0 -5px 15px rgba(0,0,0,0.2)',
+        transition: 'background-color 0.3s ease, transform 0.3s ease',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        paddingTop: '20px'
+      }}>
+        {/* Face */}
+        <div style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* Eyes Container */}
+          <div style={{ display: 'flex', gap: '25px', marginBottom: '15px' }}>
+            {/* Left Eye */}
+            <div style={{ 
+              width: '28px', 
+              height: '28px', 
+              backgroundColor: 'white', 
+              borderRadius: '50%', 
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.1)',
+              border: expression === 'frightened' ? '2px solid #fff' : 'none',
+              animation: expression === 'frightened' ? 'shake 0.1s infinite' : 'none'
+            }}>
+              {expression === 'dead' ? (
+                <div style={{ fontSize: '20px', fontWeight: 'bold', textAlign: 'center', lineHeight: '28px', color: '#333' }}>×</div>
+              ) : (
+                <div style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  backgroundColor: '#333', 
+                  borderRadius: '50%', 
+                  position: 'absolute',
+                  left: '8px',
+                  top: '8px',
+                  ...getEyeStyle(false)
+                }} />
+              )}
+            </div>
+            {/* Right Eye */}
+            <div style={{ 
+              width: '28px', 
+              height: '28px', 
+              backgroundColor: 'white', 
+              borderRadius: '50%', 
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.1)',
+              animation: expression === 'frightened' ? 'shake 0.1s infinite' : 'none'
+            }}>
+               {expression === 'dead' ? (
+                <div style={{ fontSize: '20px', fontWeight: 'bold', textAlign: 'center', lineHeight: '28px', color: '#333' }}>×</div>
+              ) : (
+                <div style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  backgroundColor: '#333', 
+                  borderRadius: '50%', 
+                  position: 'absolute',
+                  left: '8px',
+                  top: '8px',
+                  ...getEyeStyle(true)
+                }} />
+              )}
+            </div>
+          </div>
+
+          {/* Mouth */}
+          <div style={{
+            width: expression === 'frightened' ? '40px' : (expression === 'dead' ? '25px' : '20px'),
+            height: expression === 'frightened' ? '20px' : (expression === 'dead' ? '4px' : '8px'),
+            backgroundColor: '#333',
+            borderRadius: expression === 'frightened' ? '50% 50% 10px 10px' : '10px',
+            transition: 'all 0.2s ease',
+            boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.2)'
+          }} />
+        </div>
+      </div>
+      
+      {/* Legs */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', position: 'absolute', bottom: '-5px', width: '100%', zIndex: -1 }}>
+          <div style={{ width: '18px', height: '25px', backgroundColor: expression === 'dead' ? '#333' : '#45b7af', borderRadius: '8px', boxShadow: '0 5px 10px rgba(0,0,0,0.3)' }} />
+          <div style={{ width: '18px', height: '25px', backgroundColor: expression === 'dead' ? '#333' : '#45b7af', borderRadius: '8px', boxShadow: '0 5px 10px rgba(0,0,0,0.3)' }} />
+      </div>
+
+      <style>{`
+        @keyframes shake {
+          0% { transform: translate(1px, 1px) rotate(0deg); }
+          20% { transform: translate(-1px, 0px) rotate(-1deg); }
+          40% { transform: translate(1px, -1px) rotate(1deg); }
+          60% { transform: translate(-1px, 1px) rotate(0deg); }
+          80% { transform: translate(1px, 1px) rotate(-1deg); }
+          100% { transform: translate(-1px, -2px) rotate(-1deg); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 function BulletHole({ x, y, id, img, onExpired }) {
     const [isFading, setIsFading] = useState(false)
 
@@ -191,8 +370,13 @@ function BulletHole({ x, y, id, img, onExpired }) {
 
 function App() {
   const [holes, setHoles] = useState([])
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
+      const handleMouseMove = (e) => {
+          setMousePos({ x: e.clientX, y: e.clientY })
+      }
+
       const handleClick = (e) => {
             const randomImg = HOLE_IMAGES[Math.floor(Math.random() * HOLE_IMAGES.length)];
             const newHole = {
@@ -204,14 +388,17 @@ function App() {
             setHoles(h => [...h, newHole])
       }
       
+      window.addEventListener('mousemove', handleMouseMove)
       window.addEventListener('mousedown', handleClick)
-      return () => window.removeEventListener('mousedown', handleClick)
+      return () => {
+          window.removeEventListener('mousemove', handleMouseMove)
+          window.removeEventListener('mousedown', handleClick)
+      }
   }, [])
 
   const removeHole = useCallback((id) => {
       setHoles(h => h.filter(hole => hole.id !== id))
   }, [])
-// ...
 
   return (
     <div style={{ 
@@ -222,6 +409,7 @@ function App() {
         overflow: 'hidden'
     }}>
       <GunCursor />
+      <Mascot mousePos={mousePos} />
       {holes.map(h => (
           <BulletHole key={h.id} {...h} onExpired={removeHole} />
       ))}
